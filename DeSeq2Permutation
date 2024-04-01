@@ -1,0 +1,231 @@
+library(TCGAbiolinks)
+library(dplyr)
+library(ggplot2)
+library(gplots)
+library(DESeq2)
+library(SummarizedExperiment)
+
+install.packages("hash")
+
+TCGAbiolinks::getProjectSummary("TCGA-PAAD")
+query_TCGA = GDCquery(
+  project = "TCGA-PAAD",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  experimental.strategy = "RNA-Seq",
+  data.type = "Gene Expression Quantification",
+  workflow.type = "STAR - Counts")
+
+
+results = TCGAbiolinks::getResults(query_TCGA)
+dat <- GDCprepare(query = query_TCGA, save = TRUE, save.filename = "exp.rda")
+geneExp <- SummarizedExperiment::assay(dat)
+
+md <- SummarizedExperiment::rowData()
+
+
+
+adjustedResults <- inner_join(results, Deduped_clinical, 
+                       by = c("cases.submitter_id" = "case_submitter_id"))
+
+finalStageIBMean <- inner_join(adjustedResults, logChangeCSVStageIBMean, 
+                                by = c("cases" = "caseIB"))
+
+
+
+
+pathway <- "/Users/Raghav/Desktop/finalStageIIA1.csv"
+write.csv(finalStageIIAMean,pathway)
+
+adjustedResults <- adjustedResultsNew
+
+stage <- c(adjustedResults$ajcc_pathologic_stage)
+
+caseList <- c(adjustedResults$cases)
+
+caseID <- c(adjustedResults$cases.submitter_id)
+
+sampleType <- c(adjustedResults$sample_type)
+
+caseIIB <- vector(mode="character")
+caseIIA <- vector(mode = "character")
+caseIA <- vector(mode = "character")
+caseIB <- vector(mode = "character")
+caseIV <- vector(mode = "character")
+
+
+#separating TCGA ids by stage 
+for(i in 1:length(stage)){
+  if((stage[i] == "Stage IIB") && (sampleType[i] == "Primary Tumor")) {
+    caseIIB <- c(caseIIB,caseList[i])
+  }
+  else if(stage[i] == "Stage IIA" && (sampleType[i] == "Primary Tumor")) {
+    caseIIA <- c(caseIIA,caseList[i])
+  }
+  else if(stage[i] == "Stage IA" && (sampleType[i] == "Primary Tumor")) {
+    caseIA <- c(caseIA,caseList[i])
+  }
+  else if(stage[i] == "Stage IB" && (sampleType[i] == "Primary Tumor")) {
+    caseIB <- c(caseIB,caseList[i])
+  }
+  else if(stage[i] == "Stage IV" && (sampleType[i] == "Metastatic")) {
+    caseIV <- c(caseIV,caseList[i])
+  }
+}
+
+logFoldchangeIIB = vector(mode = "numeric")
+stageIA = vector(mode = "character")
+geneType = vector(mode = "character")
+
+count = 0
+
+
+logChangeMapIIB <- hash()
+
+
+testString <- ""
+
+#gathering all the DeSeq values
+for(i in 1:length(caseIIB)){
+
+  print(i)
+  tumor1 <- caseIIB[i]
+  if(i>44){
+  for(j in (1):length(caseIIB)){
+    count = count + 1
+    tumor2 <- caseIIB[j]
+    if (tumor1 == tumor2){
+      next
+    }
+    
+    logValue <- runningDeseq(tumor1=tumor1,tumor2=tumor2)
+    logValue <- logValue[1]
+    logFoldchangeIIB <- c(logFoldchangeIIB,logValue)
+  }
+  
+  logChangeMapIIB[[tumor1]] <- c(mean(logFoldchangeIIB),median(logFoldchangeIIB),sd(logFoldchangeIIB))
+  print(logChangeMapIIB[[tumor1]])
+  logFoldchangeIIB <- c()
+  }
+}
+
+
+
+
+
+
+age <- c(adjustedResults$age_at_index)
+race <- c(adjustedResults$race)
+ageDiagnosis <- c(adjustedResults$age_at_diagnosis)
+gender <- c(adjustedResults$gender)
+site <- c(adjustedResults$tissue_or_organ_of_origin)
+
+mean <- c()
+median <- c()
+sd <- c()
+
+for(str in caseIIB[45:119]){
+  mean <- c(mean,logChangeMapIIB[[str]][1])
+  median <- c(median,logChangeMapIIB[[str]][2])
+  sd <- c(sd, logChangeMapIIB[[str]][3])
+}
+
+dfIIB <- data.frame(
+  caseIIB[45:119],
+  mean,
+  median,
+  sd
+)
+
+mean <- logChangeMapIIB$
+
+dfIIB2 <- as.data.frame(logChangeMapIIB)
+
+newMean <- c()
+newMedian <- c()
+newSd <- c()
+
+caseRef <- c(caseIIB[1:30])
+  
+
+
+
+
+
+pathway <-"/Users/Raghav/Desktop/logChangeCSVStageIIBPart2HDAC2.csv"
+
+write.csv(dfIIB, pathway)
+
+
+stageIIBFinal <- data.frame(HDAC2StageIIBFinal_Sheet1)
+stageIBfinal <- data.frame(logChangeCSVStageIBHDAC2)
+stageIAfinal <- data.frame(logChangeCSVStageIAHDAC2)
+stageIIAfinal <- data.frame(logChangeCSVStageIIAHDAC2)
+
+
+genomic_info <- maf@data[, c("Chromosome", "Start_Position", "End_Position")]
+pathogenic_mutations_df <- data.frame(Pathogenic_Mutation_ID = rownames(pathogenic_mutations), pathogenic_mutations, row.names = NULL)
+pathogenic_mutations_with_location <- merge(pathogenic_mutations_df, genomic_info, by.x = "Pathogenic_Mutation_ID", by.y = "row.names")
+head(pathogenic_mutations_with_location)
+
+
+
+
+runningDeseq <- function(tumor1, tumor2){
+
+  #tumor vs normal
+  tumor<-geneExp[ , grepl( ".............01............." , colnames( geneExp ) ) ]
+  dim(tumor)
+  normal<-geneExp[ , grepl( ".............11............." , colnames( geneExp ) ) ]
+  dim(normal)
+  
+  cnts <- data.frame(tumor,normal) 
+  
+  #filtering datasets
+  row_names_to_keep = c("ENSG00000196591.12", "ENSG00000171720.10")
+  
+  filtered_cnts <- subset(cnts, row.names(cnts) %in% row_names_to_keep)
+  
+  #case comparison
+  l <- list(data.frame(geneExp))
+  list1 <- c("TCGA-H6-A45N-11A-12R-A26U-07", tumor1,
+             "TCGA-HV-A5A3-11A-11R-A26U-07", tumor2)
+  list1 <- gsub("-",".",list1)
+  dta_list1 <- lapply(l, function(x) x%>% select(all_of(list1)))
+  
+  
+  
+  #matrix count_data
+  
+  dta <- data.frame(dta_list1)
+  dta_list <- subset(dta, row.names(dta) %in% row_names_to_keep)
+  
+  cnts_noZero <- dta_list[rowMeans(dta_list) > 0,]
+  dim(cnts_noZero)
+  
+  #matrix coldata
+  colData <- data.frame(Stage = c("Normal","Tumor", "Normal", "Tumor"))
+  rownames(colData) <- c("TCGA.H6.A45N.11A.12R.A26U.07", tumor1,
+                         "TCGA.HV.A5A3.11A.11R.A26U.07", tumor2)
+  
+  rownames(colData) <- gsub("-",".",rownames(colData))
+
+  
+  #coldat=DataFrame(conds=factor(conds))
+  coldat
+  all(colnames(dta_list) %in% rownames(colData))
+  
+  dds <- DESeqDataSetFromMatrix(dta_list, 
+                                colData=colData, 
+                                design = ~ Stage)
+  
+  dds$Stage <- relevel(dds$Stage, ref = "Normal")
+  
+  
+  
+  dds <- DESeq(dds, fitType = "mean")
+  res <- results(dds)
+  
+  res <- data.frame(res)
+  return(res$log2FoldChange)
+}
+
