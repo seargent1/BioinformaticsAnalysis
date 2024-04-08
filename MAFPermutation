@@ -1,0 +1,100 @@
+library(TCGAbiolinks)
+library(dplyr)
+library(ggplot2)
+library(gplots)
+library(DESeq2)
+library(SummarizedExperiment)
+
+install.packages("hash")
+
+TCGAbiolinks::getProjectSummary("TCGA-UCEC")
+query <- TCGAbiolinks::GDCquery(
+  project = c("TCGA-UCEC"),
+  access = "open",
+  data.format = "MAF",
+  data.category = "Simple Nucleotide Variation"
+)
+
+results = TCGAbiolinks::getResults(query)
+dat <- GDCprepare(query = query, save = TRUE, save.filename = "exp.rda")
+geneExp <- SummarizedExperiment::assay(dat)
+
+md <- SummarizedExperiment::rowData()
+
+
+mafColumns <- maf@data
+
+caseId <- mafColumns$case_id
+typeMutation <- mafColumns$Variant_Classification
+gene <- mafColumns$Hugo_Symbol
+positions <- mafColumns$Start_Position
+
+geneList <- c()
+caseList <- c()
+valueList <- c()
+
+#boolean <- duplicated(positions)
+
+caseIndexes <- c()
+count <- 0
+
+for(i in 1:length(caseId)){
+  if(caseId[i] != caseId[i+1] && (i != 1 || i != length(caseID))){
+    caseIndexes <- c(caseIndexes,count)
+    count <- 0
+  }
+  else {
+    count = count + 1
+  }
+}
+
+#gathering all the Permutation values
+#Future code implementation using our running Permutation method
+for(i in 1:114){
+  for(j in (i+1):length(caseID)){
+    case1 = mafColumns[i]
+    case2 = mafColumns[j]
+    dataValue <- runningPermutation(case1,case2)
+    
+    if(substr(dataValue,1,1) == "Y"){
+      geneList <- c(geneList,case2$Hugo_Symbol)
+      caseList <- c(caseList,case2$case_id)
+      valueList <- c(valueList,dataValue)
+      
+      print(length(geneList))
+      print(length(caseList))
+      print(length(valueList))
+      
+      print("############")
+    }
+  }
+}
+
+
+permutationDataframe <- data.frame(
+  geneList,
+  valueList,
+  caseList
+)
+
+
+
+runningPermutation <- function(case1, case2){
+   if(case1$Hugo_Symbol == case2$Hugo_Symbol){
+     if(case1$Variant_Classification == case2$Variant_Classification){
+       finalDataPoint <- paste("Y",as.character(case1$Start_Position - case2$Start_Position,sep=""))
+       return(finalDataPoint)
+     }
+     else {
+       return("N")
+     }
+   }
+   else {
+     return("N")
+   }
+}
+  
+
+write.csv(mafColumns, "/Users/Raghav/Desktop/mafColumns.csv")
+
+
