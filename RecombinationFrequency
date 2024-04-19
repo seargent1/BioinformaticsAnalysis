@@ -1,0 +1,24 @@
+def recombinationFrequency(gene1, gene2, punnett):
+        """
+        Returns the recombination frequency to determine if genes provided are linked
+        Uses all allele combinations found in punnett grid and matches it to parent combinations
+        """
+
+        #Intitalizing the number of recombinants and offspring in the punnett grid
+        recombinants = 0
+        totalOffspring = 0
+
+        #Determining if allele combination is different from gene1 or gene2
+        for i in range(1,len(punnett)):
+            for j in range(1,len(punnett[0])):
+                totalOffspring += 1
+                if(punnett[i][j] != gene1 and punnett[i][j] != gene2):
+                    recombinants += 1
+
+        #Finding the final recombination frequency to determine if the genes are linked
+        recombinantFrequency = recombinants/totalOffspring
+        if(recombinantFrequency < 0.5):
+            return True
+        else:
+            return False
+        
