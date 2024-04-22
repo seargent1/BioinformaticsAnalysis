@@ -1,0 +1,191 @@
+import arcade 
+
+SCREEN_HEIGHT= 900
+SCREEN_WIDTH = 900
+SCREEN_TITLE = "Create Task"
+
+class PunnettSquare:
+
+    """
+        Method to split up all the individual alleles in each parent gene
+        Parameters: genes from parent1 and parent2
+        Example: Parent 1: bbRR, Parent 2: BbRr
+        Parent1Alleles --> [bR, bR, bR, bR]
+        Parent2Alleles --> [BR, Br, bR, br]
+        Returns list containing both parent1 and parent2Alleles
+    """
+    def divideAlleles(parent1Genes, parent2Genes):
+        parent1Alleles = []
+        parent2Alleles = []
+
+        numAlleles = 2
+
+        for i in range(0,2):
+            #First possible allele combination
+            parent1AlleleFirstCharacter = parent1Genes[i]
+            parent2AlleleFirstCharacter = parent2Genes[i]
+
+            #Creating all the possible allele combinations for gene1 and gene2
+            for j in range(numAlleles,len(parent1Genes)):
+                parent1Alleles.append(parent1AlleleFirstCharacter + parent1Genes[j])
+                parent2Alleles.append(parent2AlleleFirstCharacter + parent2Genes[j])
+
+        #List to store the alleles for both genes 
+        dividedAlleles = [parent1Alleles,parent2Alleles]
+
+        return dividedAlleles
+    
+    
+    """
+      Creating punnett grid to be displayed for user reference
+      Parameters: Parent1Alleles and Parent 2 Alleles (taken from list returned by divideAlleles method)
+      Determines all possible gene combinations between paren1Alleles and parent2Alleles
+      Returns 2D array of the final punnett square
+    """
+    def createPunnett(parent1Alleles, parent2Alleles):
+      
+      rows = len(parent2Alleles) + 1
+      cols = len(parent1Alleles) + 1
+      # Initializing empty punnett grid to be filled with all the permutations
+      punnett = []
+      for i in range(rows):
+          punnett.append([None] * cols)
+
+      # First row of the punnett is labeling the allele combinations from the first parent
+      punnett[0][1:] = parent1Alleles
+      # Inputting allele combinations based on different rows and columns
+      for i in range(1, rows):
+          for j in range(cols):
+              if j == 0:
+                  # First position of row in grid is to label allele from gene2 being combined
+                  punnett[i][0] = parent2Alleles[i-1]
+              else:
+                  # Keep allele combination for gene2 constant and combine it with all possible combinations for gene1
+                  punnett[i][j] = parent1Alleles[j-1] + parent2Alleles[i-1]
+
+      return punnett
+    
+    """
+        Method using arcade drawing tools to display a background on the screen
+        To be called in the main method after the screen is initialized
+    """
+    def draw_background():
+        #Uses arcade draw rectangle filled tool that creates a blue rectangle the size of the screen
+        arcade.draw_lrtb_rectangle_filled(0,
+                                      SCREEN_WIDTH,
+                                      SCREEN_HEIGHT,
+                                      0,
+                                      arcade.color.SKY_BLUE)
+
+    """
+        General method to be used for displaying text for the graphics protion on the screen
+        Parameters: Text need to be displayed on screen, location of text on screen, size of text
+        To be called in the main method to display the specific genes that the user inputs
+        Used to display the punnett square on the screen
+    """
+    def display_Text(text, font_size, start_x, start_y):
+        
+        arcade.draw_text(text,
+                         start_x,
+                         start_y,
+                         arcade.color.BLACK,
+                         font_size,
+                         width = SCREEN_WIDTH,
+                         align = "center")
+
+    """
+        Method to draw the punnett grid on the screen
+        Parameters: 2D array punnett square from the create Punnett method
+    """  
+    def drawPunnett(punnett):
+
+        #Variable to determine the y value on the screen for which a row in the punnett table is displayed 
+        change_y = 200
+
+        #Iterates through the 2D array punnett square rows and columns
+        for i in range(len(punnett)):
+            #Initializing variable to store a string for the row of the table being displayed
+            lineText = ""
+            for j in range(len(punnett[0])):
+                #Checking for the unfilled positions of the 2D array and displaying it accordingly
+                if(punnett[i][j] == None):
+                    lineText += PunnettSquare.numSpaces(4) + "\t\t"
+                else:
+                    #Calling numSpaces method to format the spacing between strings in the 2D array row
+                    lineText += PunnettSquare.numSpaces(4-len(punnett[i][j])) + punnett[i][j] + "\t\t"
+
+            #Draws the finalized lineText string on the screen using the display Text method created above
+            PunnettSquare.display_Text(lineText,20,50,SCREEN_HEIGHT - change_y)
+            
+            #Changing position of the next row of the table on the screen
+            change_y += 40
+
+    """
+        Returns the number of spaces that the user inputs in the parameter
+        Called to manage spacing between columns and rows of the 2D punnett square on the screen
+    """
+    def numSpaces(numSpaces):
+        spaces = ""
+        for i in range(numSpaces):
+            spaces += " "
+
+        return spaces
+
+    """
+        Main method to take user input of both parents genes
+        Calls divide Alleles method, createPunnett method, drawPunnett method and other procedures to display 
+        the punnett square on the screen
+    """
+    def main():   
+        #Initializes the screen using the arcade open window tool
+        arcade.open_window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+
+        #Calls the arcade functions to be implemented throughout the program
+        arcade.start_render()
+
+        #Print statements in terminal to introduce the educational tool and the user input
+        print("This educational tool teaches you how to form dihybrid punnett squares")
+        
+        print("It displays all possible combinations of a kids genes based on the genes of their parents")
+
+        inputParentGenes = input("Please list the two parent genes you wanted the test: ")
+
+        #Creating a list of the user inputs by gene1, gene2, and the num of alleles 
+        listParentsGenes = inputParentGenes.split()
+
+        #Consistently storing genes of the parents as uppercase strings
+        listParentsGenes = [string.upper() for string in listParentsGenes]
+
+        #Asking for user input continuously until both the lengths are 4 for the dihybrid cross
+        while len(listParentsGenes[0]) != 4 or len(listParentsGenes[1]) != 4:
+
+            inputNewParentGenes = input("Reenter the parent genes to be the proper length: ")
+            newGeneList = inputNewParentGenes.split()
+            listParentsGenes = newGeneList
+            
+        #Calling the draw background method to use the arcade tool for creating a blue background
+        PunnettSquare.draw_background()
+
+        #Calling display text method to present the user input on the screen
+        PunnettSquare.display_Text("Parent 1: " + listParentsGenes[0] + ", Parent 2: " + listParentsGenes[1],
+                                   30,
+                                   20,
+                                   SCREEN_HEIGHT - 100
+                                   )
+        
+        #Creating the alleles that will be displayed as the row and column heading in the punnet square
+        listParentsAlleles = PunnettSquare.divideAlleles(listParentsGenes[0], listParentsGenes[1])
+
+        #Creating the 2D punnett square using the create Punnett method based on the divided alleles
+        punnett = PunnettSquare.createPunnett(listParentsAlleles[0], listParentsAlleles[1])
+
+        #Calling the drawPunnett method to draw the table on the screen
+        PunnettSquare.drawPunnett(punnett)
+
+        #Running the program using arcade
+        arcade.finish_render()
+        arcade.run()
+
+#Calling the main method to test the program
+if __name__ == "__main__":
+    PunnettSquare.main()
