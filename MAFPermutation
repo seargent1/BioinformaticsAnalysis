@@ -38,6 +38,7 @@ valueList <- c()
 caseIndexes <- c()
 count <- 0
 
+#progress for writing a loop to iterate through all sets of cases
 for(i in 1:length(caseId)){
   if(caseId[i] != caseId[i+1] && (i != 1 || i != length(caseID))){
     caseIndexes <- c(caseIndexes,count)
@@ -48,8 +49,22 @@ for(i in 1:length(caseId)){
   }
 }
 
+start_index = 1
+mutationsDataframes <- c()
+
+for(i in caseIndexes){
+  last_index = i
+  df <- runningPermutationAll(start_index,last_index)
+  mutationsDataframes <- c(mutationsDataframes, df)
+  print(df)
+  start_index = i + 1
+}
+
+print(mutationsDataframes)
+
 #gathering all the Permutation values
 #Future code implementation using our running Permutation method
+
 for(i in 1:114){
   for(j in (i+1):length(caseID)){
     case1 = mafColumns[i]
@@ -70,14 +85,32 @@ for(i in 1:114){
   }
 }
 
-
 permutationDataframe <- data.frame(
   geneList,
   valueList,
   caseList
 )
 
-
+runningPermutationAll <- function(startIndex, endIndex){
+  mutation1List <- c()
+  mutation2List <- c()
+  caseID <- mafColumns$case_id
+  allPermutations <- c()
+  for(i in startIndex:endIndex){
+    print(mafColumns[startIndex]$case_id)
+    for(j in (i+1):length(caseID)){
+      case1 = mafColumns[i]
+      case2 = mafColumns[j]
+      
+      mutation1List <- c(mutation1List, (paste((case1$Chromosome),case1$Start_Position)))
+      mutation2List <-  c(mutation1List, (paste((case2$Chromosome),case2$Start_Position)))
+      
+      df <- data.frame(mutation1List,mutation2List)
+      return(df)
+    }
+    
+  }
+}
 
 runningPermutation <- function(case1, case2){
    if(case1$Hugo_Symbol == case2$Hugo_Symbol){
