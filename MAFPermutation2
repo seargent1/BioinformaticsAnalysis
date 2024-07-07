@@ -1,0 +1,82 @@
+library(TCGAbiolinks)
+library(dplyr)
+library(SummarizedExperiment)
+
+install.packages("hash")
+
+TCGAbiolinks::getProjectSummary("TCGA-UCEC")
+query <- TCGAbiolinks::GDCquery(
+  project = c("TCGA-UCEC"),
+  access = "open",
+  data.format = "MAF",
+  data.category = "Simple Nucleotide Variation"
+)
+
+results = TCGAbiolinks::getResults(query)
+dat <- GDCprepare(query = query, save = TRUE, save.filename = "exp.rda")
+geneExp <- SummarizedExperiment::assay(dat)
+
+mafColumns <<- dat
+
+caseId <<- mafColumns$case_id
+sampleTypes <<- unique(caseId)
+
+caseIndexes <<- c()
+count <- 0
+idTrack <- 1
+
+#progress for writing a loop to iterate through all sets of cases
+for(i in 1:length(caseId)){
+  count <- count + 1
+  if(caseId[i]!=sampleTypes[idTrack]){
+    caseIndexes <- c(caseIndexes,count)
+    idTrack <- idTrack + 1
+  }
+}
+
+#gathering all the Permutation values
+#Future code implementation using our running Permutation method
+
+hgvsc <<- mafColumns$HGVSc
+polyPhen <<- mafColumns$PolyPhen
+geneID <<- mafColumns$Hugo_Symbol
+mutationsDataframes <<- data.frame()
+
+for(i in 1:caseIndexes[1]){
+  mutation1 <- c("PIK3CA", "c.1258T>C","possibly_damaging(0.908)")
+  mutation2 <- c(geneID[i], hgvsc[i], polyPhen[i])
+  if(!(identical(mutation1,mutation2))){
+    columns <- c(mutation1,mutation2)
+    mutationsDataframes <- rbind(mutationsDataframes,columns)
+  }
+}
+
+alldataFrames <- c()
+
+for(i in 1:length(caseId)){
+  dataframe <- runningPermutation(hgvsc[i],polyPhen[i],geneID[i],caseId[i])
+  View(dataframe)
+  alldataFrames <- c(alldataFrames,dataframe)
+}
+
+
+runningPermutation <- function(geneId,hgvsc,polyphen,sample){
+  index <- match(sample,sampleTypes)
+  startIndex <- 0
+  if(index==1){
+    startIndex <- 1
+  }
+  else{
+    startIndex <- caseIndexes[index]
+  }
+  for(i in startIndex:caseIndexes[index+1]){
+    mutation1 <- c(geneId, hgvsc, polyphen )
+    mutation2 <- c(geneID[i], hgvsc[i], polyPhen[i])
+    if(!(identical(mutation1,mutation2))){
+      columns <- c(mutation1,mutation2)
+      mutationsDataframes <- rbind(mutationsDataframes,columns)
+    }
+  }
+  return(mutationsDataframes)
+}
+
