@@ -1,0 +1,166 @@
+TCGAbiolinks::getProjectSummary("TCGA-COAD")
+query_TCGA = GDCquery(
+  project = "TCGA-COAD",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  experimental.strategy = "RNA-Seq",
+  data.type = "Gene Expression Quantification",
+  workflow.type = "STAR - Counts")
+
+geneExp <- SummarizedExperiment::assay(dat)
+results = TCGAbiolinks::getResults(query_TCGA)
+
+
+adjustedResults <- inner_join(results, PolySpreadsheet_clinical, 
+                              by = c("cases.submitter_id" = "case_submitter_id"))
+
+stage <- adjustedResults$ajcc_pathologic_stage
+sampleType <- adjustedResults$sample_type
+
+caseI <- vector(mode="character")
+caseII <- vector(mode = "character")
+caseIIA <- vector(mode = "character")
+caseIIB <- vector(mode = "character")
+caseIII <- vector(mode = "character")
+caseIIIA <- vector(mode = "character")
+caseIIIB <- vector(mode = "character")
+caseIIIC <- vector(mode = "character")
+caseIV <- vector(mode = "character")
+caseIVA <- vector(mode = "character")
+normal <- vector(mode = "character")
+
+caseList <- adjustedResults$cases
+
+for(i in 1:length(stage)){
+  if((stage[i] == "Stage I") && (sampleType[i] == "Primary Tumor")) {
+    caseI <- c(caseI,caseList[i])
+  }
+  else if(stage[i] == "Stage II" && (sampleType[i] == "Primary Tumor")) {
+    caseII <- c(caseII,caseList[i])
+  }
+  else if(stage[i] == "Stage IIA" && (sampleType[i] == "Primary Tumor")) {
+    caseIIA <- c(caseIIA,caseList[i])
+  }
+  else if(stage[i] == "Stage IIB" && (sampleType[i] == "Primary Tumor")) {
+    caseIIB <- c(caseIIB,caseList[i])
+  }
+  else if(stage[i] == "Stage III" && (sampleType[i] == "Primary Tumor")) {
+    caseIII <- c(caseIII,caseList[i])
+  }
+  else if(stage[i] == "Stage IIIA" && (sampleType[i] == "Primary Tumor")) {
+    caseIIIA <- c(caseIIIA,caseList[i])
+  }
+  else if(stage[i] == "Stage IIIB" && (sampleType[i] == "Primary Tumor")) {
+    caseIIIB <- c(caseIIIB,caseList[i])
+  }
+  else if(stage[i] == "Stage IIIC" && (sampleType[i] == "Primary Tumor")) {
+    caseIIIC <- c(caseIIIC,caseList[i])
+  }
+  else if(stage[i] == "Stage IV" && (sampleType[i] == "Primary Tumor")) {
+    caseIV <- c(caseIV,caseList[i])
+  }
+  else if(stage[i] == "Stage IVA" && (sampleType[i] == "Primary Tumor")) {
+    caseIVA <- c(caseIII,caseList[i])
+  }
+  else if(sampleType[i] == "Solid Tissue Normal"){
+    normal <-c(normal,caseList[i])
+  }
+}
+
+caseI <- caseI[1:6]
+caseII <- caseII[1:6]
+caseIIA <- caseIIA[1:6]
+caseIIB <- caseIIB[1:6]
+caseIII <- caseIII[1:6]
+caseIIIA <- caseIIIA[1:6]
+caseIIIB <- caseIIIB[1:6]
+caseIIIC <- caseIIIC[1:6]
+caseIV <- caseIV[1:6]
+caseIVA <- caseIVA[1:6]
+normal <- normal[1:6]
+
+allCases <- c(normal,caseI,caseII,caseIIA,caseIIB,caseIII,caseIIIA,caseIIIB,caseIIIC,caseIV,caseIVA)
+
+for(i in 1:length(allCases)){
+  index1 = (6*i)-5
+  index2 = 6*i
+  index3 = index1+6
+  index4 = index2+6
+  tumor1 <- allCases[index1:index2]
+  tumor2 <- allCases[index3:index4]
+  deseqValue <- runningDeseq2(tumor1,tumor2)
+  print(deseqValue)
+}
+
+
+
+runningDeseq2 <- function(tumor1, tumor2){
+  #tumor vs normal
+  tumor<-geneExp[ , grepl( ".............01............." , colnames( geneExp ) ) ]
+  dim(tumor)
+  normal<-geneExp[ , grepl( ".............11............." , colnames( geneExp ) ) ]
+  dim(normal)
+  
+  cnts <- data.frame(tumor,normal) 
+  
+  #filtering datasets
+  row_names_to_keep = c("ENSG00000099284.15")
+  
+  filtered_cnts <- subset(cnts, row.names(cnts) %in% row_names_to_keep)
+
+  
+  #case comparison
+  l <- list(data.frame(geneExp))
+  list1 <- c(tumor1[1], tumor2[1],
+             tumor1[2], tumor2[2],
+             tumor1[3], tumor2[3],
+             tumor1[4], tumor2[4],
+             tumor1[5], tumor2[5],
+             tumor1[6], tumor2[6])
+  list1 <- gsub("-",".",list1)
+  
+  dta_list1 <- lapply(l, function(x) x%>% select(all_of(list1)))
+  
+  
+  #matrix count_data
+  
+  dta <- data.frame(dta_list1)
+  dta_list <- subset(dta, row.names(dta) %in% row_names_to_keep)
+  
+  cnts_noZero <- dta_list[rowMeans(dta_list) > 0,]
+  dim(cnts_noZero)
+  
+  #matrix coldata
+  colData <- data.frame(Stage = c("Normal","Tumor", 
+                                  "Normal", "Tumor",
+                                  "Normal", "Tumor",
+                                  "Normal", "Tumor",
+                                  "Normal", "Tumor",
+                                  "Normal", "Tumor"))
+  rownames(colData) <- c(tumor1[1], tumor2[1],
+                         tumor1[2], tumor2[2],
+                         tumor1[3], tumor2[3],
+                         tumor1[4], tumor2[4],
+                         tumor1[5], tumor2[5],
+                         tumor1[6], tumor2[6])
+  
+  rownames(colData) <- gsub("-",".",rownames(colData))
+  
+  
+  #coldat=DataFrame(conds=factor(conds))
+  all(colnames(dta_list) %in% rownames(colData))
+  
+  dds <- DESeqDataSetFromMatrix(dta_list, 
+                                colData=colData, 
+                                design = ~ Stage)
+  
+  dds$Stage <- relevel(dds$Stage, ref = "Normal")
+  
+  
+  
+  dds <- DESeq(dds, fitType = "mean")
+  res <- results(dds)
+  
+  res <- data.frame(res)
+  return(res$log2FoldChange)
+}
+
