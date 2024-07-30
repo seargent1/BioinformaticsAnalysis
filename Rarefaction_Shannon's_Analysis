@@ -1,0 +1,157 @@
+library(tidyverse)
+library(iNEXT)
+
+View(bugs_full)
+
+#old class variables
+species <- bugs_full$GenSP
+sites <- bugs_full$Site
+transect <- bugs_full$Pan_transect
+uniqueSpecies <- unique(species)
+uniqueSites <- unique(bugs_full$Site)
+uniqueTrap <- unique(bugs_full$Pan_transect)
+speciesCovered <- c()
+abundanceDataFrame <- data.frame()
+
+#filter out specific orders for our data
+bugs_final<-BugsFinal%>% 
+  filter(!Order=="Lepidoptera" ,!Order=="Coleoptera")
+
+#determine number of unique species for Pan_Transect
+bugs_T <- bugs_final%>%
+  filter(Pan_transect=='P')
+
+speciesP <- paste(bugs_T$Genus, bugs_T$Species)
+uniqueSpeciesP <- unique(speciesP)
+
+uniqueT <- setdiff(uniqueSpeciesT,uniqueSpeciesP)
+uniqueP <- setdiff(uniqueSpeciesP,uniqueSpeciesT)
+
+#2024 class variables
+species <- paste(bugs_final$Genus, bugs_final$Species)
+sites <- bugs_final$Site
+transect <- bugs_final$Pan_transect
+uniqueSpecies <- unique(species)
+genus <- bugs_final$Genus
+uniqueGenus <- unique(genus)
+uniqueSites <- unique(sites)
+uniqueTrap <- unique(bugs_final$Pan_transect)
+
+#creating abundance table for species diversity index graph
+for(i in 1:length(uniqueSpecies)){
+  speciesType <- uniqueSpecies[i]
+  transectAbundance <- c()
+  for(j in 1:length(uniqueTrap)){
+    ind_transect <- uniqueTrap[j]
+    count <- 0
+    for(k in 1:length(bugs_final$Site)){
+      if(transect[k] == ind_transect & species[k] == speciesType){
+        count <- count + 1
+      }
+    }
+    transectAbundance <- c(transectAbundance, count)
+  }
+  abundanceDataFrame <- rbind(abundanceDataFrame,transectAbundance)
+}
+
+siteDataFrame <- data.frame()
+
+#creating dataframe for the standard error part of the graph
+for(i in 1:length(uniqueSpecies)){
+  speciesType <- uniqueSpecies[i]
+  siteAbundance <- c()
+  for(j in 1:length(uniqueSites)){
+    siteType <- uniqueSites[j]
+    count <- 0
+    for(k in 1:length(bugs_final$Site)){
+      if(sites[k] == siteType & speciesType == species[k] & transect[k] == 'T'){
+        count <- count + 1
+      }
+    }
+    siteAbundance <- c(siteAbundance, count)
+  }
+  siteDataFrame <- rbind(siteDataFrame,siteAbundance)
+}
+
+#adjusting column and row names for the overal shannons bar plot
+colnames(abundanceDataFrame) <- uniqueTrap
+rownames(abundanceDataFrame) <- uniqueSpecies
+
+#adjusting column and row names for the standard error bar procedure
+colnames(siteDataFrame) <- uniqueSites
+rownames(siteDataFrame) <- uniqueSpecies
+
+#species accumulation curve
+numeric_data <- abundanceDataFrame [, sapply (abundanceDataFrame, is.numeric)]
+str(numeric_data)
+numeric_matrix <- as.matrix(numeric_data)
+numeric_matrix_no_na <- na.omit(numeric_matrix)
+library(iNEXT)
+D_abund <- iNEXT(numeric_matrix_no_na, datatype = 'abundance')
+D_abund_graph <- plot(D_abund)
+
+#creating list of indexes for overall graph, pan trap abundance, and transect abundance
+shannons_index_list <- c()
+shannons_index_sites_p <- c()
+shannons_index_sites_t <- c()
+
+#index list for P and T in overall graph
+for(i in 1:2){
+  species_counts <- abundanceDataFrame[i]
+  diversity_index <- diversity(species_counts, index="shannon")
+  shannons_index_list <- c(shannons_index_list, diversity_index)
+}
+
+#index list to calculate for standard error
+for(i in 1:5){
+  species_counts <- siteDataFrame[i]
+  diversity_index <- diversity(species_counts, index="shannon")
+  shannons_index_sites_t <- c(shannons_index_sites_t, diversity_index)
+}
+
+#Standard error dataframe
+standardErrorFrame <- data.frame(uniqueSites, shannons_index_sites_p, shannons_index_sites_t)
+
+#Standard deviation to be implemented for the error bars
+sd_P <- sd(shannons_index_sites_p)
+sd_T <- sd(shannons_index_sites_t)
+
+#plot frame for the box plot
+newBarPlotFrame <- data.frame(
+  Site = c(uniqueSites,uniqueSites),
+  Pan_Transect = c(rep("P",5),rep("T",5)),
+  Shannon_Index = c(shannons_index_sites_p,shannons_index_sites_t)
+)
+
+#statistical tests to determine significance of the box plot
+order_pan_glm <- glm(Shannon_Index~Pan_Transect, family = gaussian, data = newBarPlotFrame)
+summary(order_pan_glm)
+
+#plot frome for the bar plot
+data <- data.frame(
+  Trap_Method = c("Pan Trap", "Aerial Netting"),
+  ShannonIndex = shannons_index_list,
+  std_dev = c(sd_P, sd_T)
+)
+
+#plotting Shannon Index box plot
+pan_tran_box<-ggplot(newBarPlotFrame, aes(x = Pan_Transect, y =Shannon_Index, fill = Pan_Transect))+ 
+  geom_boxplot()+ # denotes we're using a boxplot
+  labs(x="Trap method", y= "Shannon's Diversity Index",size = 30)+
+  scale_fill_manual(values = c("lightgreen", "lightblue"))+
+  theme_classic()+ 
+  theme(legend.position="none",legend.title=element_blank(),
+        axis.text = element_text(colour = "black",size=12))
+
+#plotting Shannon Index box plot
+ggplot(data, aes(x = TrapMethod, y = ShannonIndex)) +
+  geom_boxplot(stat = "identity", fill = "lightblue", width = 0.4) +
+  geom_errorbar(aes(ymin = ShannonIndex - std_dev / 2, ymax = ShannonIndex + std_dev / 2), width = 0.1) +
+  labs(x = "Trap Method", y = "Shannon Index") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_classic()
+
+colors <- c("red", "yellow", "green", "blue", "purple")
+
+#code for Shannon's bar plot
+barplot(shannons_index_list, names.arg = uniqueTrap[3:4], xlab = "Trap Method", ylab = "Shannons Diversity Index", col = "lightblue", main = "Species Diversity Index per Trapping Method")
