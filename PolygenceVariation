@@ -6,15 +6,18 @@ query_TCGA = GDCquery(
   data.type = "Gene Expression Quantification",
   workflow.type = "STAR - Counts")
 
+query_TCGA <- GDCdownload(query = query_TCGA)
 geneExp <- SummarizedExperiment::assay(dat)
 results = TCGAbiolinks::getResults(query_TCGA)
+dat <- GDCprepare(query = query_TCGA, save = TRUE, save.filename = "exp.rda")
 
 
-adjustedResults <- inner_join(results, PolySpreadsheet_clinical, 
+adjustedResults <- inner_join(results, Untitled_spreadsheet_clinicalCOAD1, 
                               by = c("cases.submitter_id" = "case_submitter_id"))
 
 stage <- adjustedResults$ajcc_pathologic_stage
 sampleType <- adjustedResults$sample_type
+
 
 caseI <- vector(mode="character")
 caseII <- vector(mode = "character")
@@ -66,31 +69,87 @@ for(i in 1:length(stage)){
   }
 }
 
-caseI <- caseI[1:6]
-caseII <- caseII[1:6]
-caseIIA <- caseIIA[1:6]
-caseIIB <- caseIIB[1:6]
-caseIII <- caseIII[1:6]
-caseIIIA <- caseIIIA[1:6]
-caseIIIB <- caseIIIB[1:6]
-caseIIIC <- caseIIIC[1:6]
-caseIV <- caseIV[1:6]
-caseIVA <- caseIVA[1:6]
-normal <- normal[1:6]
+caseI <- unique(caseI)
+caseII <- unique(caseII)
+caseIIA <- unique(caseIIA)
+caseIIB <- unique(caseIIB)
+caseIII <- unique(caseIII)
+caseIIIA <- unique(caseIIIA)
+caseIIIB <- unique(caseIIIB)
+caseIIIC <- unique(caseIIIC)
+caseIV <- unique(caseIV)
+caseIVA <- unique(caseIVA)
+normal <- unique(normal)
+
+caseI <- caseI[1:8]
+caseII <- caseII[1:8]
+caseIIA <- caseIIA[1:8]
+caseIIB <- caseIIB[1:8]
+caseIII <- caseIII[1:8]
+caseIIIA <- caseIIIA[1:8]
+caseIIIB <- caseIIIB[1:8]
+caseIIIC <- caseIIIC[1:8]
+caseIV <- caseIV[1:8]
+caseIVA <- caseIVA[1:8]
+normal <- normal[1:8]
 
 allCases <- c(normal,caseI,caseII,caseIIA,caseIIB,caseIII,caseIIIA,caseIIIB,caseIIIC,caseIV,caseIVA)
+caseIndexesList <- c(41, 80, 30, 144, 12, 20, 8, 60, 45, 48, 20)
+count <- 1
+h2afydeSeqList <- c()
+h2afzdeseqlist <- c()
+h2afypvalue <- c()
+h2afzpvalue <- c()
 
+deseqList <- c()
+pvaluelist <- c()
+
+startIndex <- 1
+
+set1<- 1
+set2<- 41
+
+tumor1 <- allCases[set1:set2]
 for(i in 1:length(allCases)){
-  index1 = (6*i)-5
-  index2 = 6*i
-  index3 = index1+6
-  index4 = index2+6
-  tumor1 <- allCases[index1:index2]
-  tumor2 <- allCases[index3:index4]
-  deseqValue <- runningDeseq2(tumor1,tumor2)
-  print(deseqValue)
+  lessValue <- 0
+  if(caseIndexesList[count] < caseIndexesList[count+1]) {
+    lessValue <- caseIndexesList[count]
+  }
+  else{
+    lessValue <- caseIndexesList[count+1]
+  }
+  endIndex <- startIndex+caseIndexesList[count]-1
+  tumor2 <- allCases[(startIndex+lessValue):(endIndex+lessValue)]
+  if(i > 1){
+    deseqValue <- runningDeseq2(tumor1,tumor2)
+    deseqList <- c(deseqList,deseqValue$logFold)
+    pvaluelist <- c(pvaluelist,deseqValue$pValue)
+  }
+  startIndex <- startIndex+caseIndexesList[count] 
+  endIndex <-endIndex+caseIndexesList[count]+caseIndexesList[count+1]
+  count <- count +1
 }
 
+split_even_odd <- function(input_list) {
+  even_indices <- seq(2, length(input_list), by = 2)  # indices 2, 4, 6, ...
+  odd_indices <- seq(1, length(input_list), by = 2)   # indices 1, 3, 5, ...
+  
+  even_list <- input_list[even_indices]
+  odd_list <- input_list[odd_indices]
+  
+  return(list(even = even_list, odd = odd_list))
+}
+
+resultDeSeq <- split_even_odd(deseqList)
+h2afydeSeqList <- resultDeSeq$odd
+h2afzdeseqlist <- resultDeSeq$even
+
+resultPvalue <- split_even_odd(pvaluelist)
+h2afypvalue <- resultPvalue$odd
+h2afzpvalue <- resultPvalue$even
+
+geneExpNames <- row.names(geneExp)
+is_in_list <- "ENSG00000164032.12" %in% geneExpNames
 
 
 runningDeseq2 <- function(tumor1, tumor2){
@@ -103,10 +162,10 @@ runningDeseq2 <- function(tumor1, tumor2){
   cnts <- data.frame(tumor,normal) 
   
   #filtering datasets
-  row_names_to_keep = c("ENSG00000099284.15")
+  row_names_to_keep = c("ENSG00000099284.15", "ENSG00000164032.12")
   
   filtered_cnts <- subset(cnts, row.names(cnts) %in% row_names_to_keep)
-
+  
   
   #case comparison
   l <- list(data.frame(geneExp))
@@ -115,8 +174,13 @@ runningDeseq2 <- function(tumor1, tumor2){
              tumor1[3], tumor2[3],
              tumor1[4], tumor2[4],
              tumor1[5], tumor2[5],
-             tumor1[6], tumor2[6])
+             tumor1[6], tumor2[6],
+             tumor1[7], tumor2[7],
+             tumor1[8], tumor2[8])
+  
   list1 <- gsub("-",".",list1)
+  
+  print(list1)
   
   dta_list1 <- lapply(l, function(x) x%>% select(all_of(list1)))
   
@@ -135,16 +199,19 @@ runningDeseq2 <- function(tumor1, tumor2){
                                   "Normal", "Tumor",
                                   "Normal", "Tumor",
                                   "Normal", "Tumor",
+                                  "Normal", "Tumor",
+                                  "Normal", "Tumor",
                                   "Normal", "Tumor"))
   rownames(colData) <- c(tumor1[1], tumor2[1],
                          tumor1[2], tumor2[2],
                          tumor1[3], tumor2[3],
                          tumor1[4], tumor2[4],
                          tumor1[5], tumor2[5],
-                         tumor1[6], tumor2[6])
+                         tumor1[6], tumor2[6],
+                         tumor1[7], tumor2[7],
+                         tumor1[8], tumor2[8])
   
   rownames(colData) <- gsub("-",".",rownames(colData))
-  
   
   #coldat=DataFrame(conds=factor(conds))
   all(colnames(dta_list) %in% rownames(colData))
@@ -161,6 +228,59 @@ runningDeseq2 <- function(tumor1, tumor2){
   res <- results(dds)
   
   res <- data.frame(res)
-  return(res$log2FoldChange)
+  print(res)
+  return(list(logFold = res$log2FoldChange,pValue = res$pvalue))
 }
 
+
+df <- data.frame(
+  Stage = c("N-I", "I-II","II-IIA","IIA-IIB","IIB-III","III-IIIA", "IIIA-IIIB", 
+            "IIIB-IIIC","IIIC-IV","IV-IVA"),
+  logFC_Gene1 = h2afydeSeqList,
+  logFC_Gene2 = h2afzdeseqlist,
+  pvalue_Gene1 = h2afypvalue,
+  pvalue_Gene2 = h2afzpvalue
+)
+
+# Creating the PA plot
+ggplot(df, aes(x = logFC_Gene1, y = logFC_Gene2)) +
+  geom_point(aes(size = -log10(pvalue_Gene1), color = -log10(pvalue_Gene2)), alpha = 0.7) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "PA Plot of Two Genes",
+       x = "Log2 Fold Change (Gene 1)",
+       y = "Log2 Fold Change (Gene 2)",
+       size = "-Log10 P-value (Gene 1)",
+       color = "-Log10 P-value (Gene 2)") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black")
+
+
+logList <- c(h2afydeSeqList,h2afzdeseqlist)
+
+dfVolcano <- data.frame(
+  gene = c("H2AFY2", "H2AFZ"),
+  logFC = logList,
+  pvalue = c(h2afypvalue,h2afzpvalue)
+)
+
+ggplot(dfVolcano, aes(x = logFC, y = -log10(pvalue))) +
+  geom_point(aes(color = pvalue < 0.05), alpha = 0.6) +
+  scale_color_manual(values = c("black", "red")) +
+  labs(title = "LogFold Expression of H2AFY2 and H2AFZ in CRC",
+       x = "Log2 Fold Change",
+       y = "-Log10 P-value") +
+  theme_minimal()
+
+ggplot(dfVolcano, aes(x = logFC, y = -log10(pvalue), color = gene)) +
+  geom_point(size = 4) +  # Add points
+  geom_text(aes(label = gene), vjust = -0.5) +  # Add text labels
+  labs(
+    x = 'Log Fold Change',
+    y = '-Log10(P-Value)',
+    title = 'Volcano Plot'
+  ) +
+  theme_minimal() +  # Use a minimal theme
+  theme(
+    legend.title = element_blank(),  # Remove legend title
+    legend.position = "right"  # Position legend to the right
+  )
