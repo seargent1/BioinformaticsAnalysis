@@ -81,18 +81,6 @@ caseIV <- unique(caseIV)
 caseIVA <- unique(caseIVA)
 normal <- unique(normal)
 
-caseI <- caseI[1:8]
-caseII <- caseII[1:8]
-caseIIA <- caseIIA[1:8]
-caseIIB <- caseIIB[1:8]
-caseIII <- caseIII[1:8]
-caseIIIA <- caseIIIA[1:8]
-caseIIIB <- caseIIIB[1:8]
-caseIIIC <- caseIIIC[1:8]
-caseIV <- caseIV[1:8]
-caseIVA <- caseIVA[1:8]
-normal <- normal[1:8]
-
 allCases <- c(normal,caseI,caseII,caseIIA,caseIIB,caseIII,caseIIIA,caseIIIB,caseIIIC,caseIV,caseIVA)
 caseIndexesList <- c(41, 80, 30, 144, 12, 20, 8, 60, 45, 48, 20)
 count <- 1
