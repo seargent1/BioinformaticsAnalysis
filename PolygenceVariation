@@ -81,6 +81,18 @@ caseIV <- unique(caseIV)
 caseIVA <- unique(caseIVA)
 normal <- unique(normal)
 
+caseI <- caseI[1:8]
+caseII <- caseII[1:8]
+caseIIA <- caseIIA[1:8]
+caseIIB <- caseIIB[1:8]
+caseIII <- caseIII[1:8]
+caseIIIA <- caseIIIA[1:8]
+caseIIIB <- caseIIIB[1:8]
+caseIIIC <- caseIIIC[1:8]
+caseIV <- caseIV[1:8]
+caseIVA <- caseIVA[1:8]
+normal <- normal[1:8]
+
 allCases <- c(normal,caseI,caseII,caseIIA,caseIIB,caseIII,caseIIIA,caseIIIB,caseIIIC,caseIV,caseIVA)
 caseIndexesList <- c(41, 80, 30, 144, 12, 20, 8, 60, 45, 48, 20)
 count <- 1
@@ -99,23 +111,26 @@ set2<- 41
 
 tumor1 <- allCases[set1:set2]
 for(i in 1:length(allCases)){
-  lessValue <- 0
-  if(caseIndexesList[count] < caseIndexesList[count+1]) {
-    lessValue <- caseIndexesList[count]
-  }
-  else{
-    lessValue <- caseIndexesList[count+1]
-  }
-  endIndex <- startIndex+caseIndexesList[count]-1
-  tumor2 <- allCases[(startIndex+lessValue):(endIndex+lessValue)]
   if(i > 1){
+    diffLengths <- caseIndexesList[1] - caseIndexesList[count]
+    if(diffLengths < 0) {
+      diffLengths <- abs(diffLengths)
+      startIndex <- startIndex + caseIndexesList[count-1]
+      endIndex <- startIndex+caseIndexesList[count]-1-diffLengths
+    }
+    else{
+      diffLengths <- abs(diffLengths)
+      startIndex <- startIndex + caseIndexesList[count-1]
+      endIndex <- startIndex+caseIndexesList[count]-1
+      tumor1 <- tumor1[1:(41-diffLengths)]
+    }
+    tumor2 <- allCases[startIndex:endIndex]
     deseqValue <- runningDeseq2(tumor1,tumor2)
     deseqList <- c(deseqList,deseqValue$logFold)
     pvaluelist <- c(pvaluelist,deseqValue$pValue)
   }
-  startIndex <- startIndex+caseIndexesList[count] 
-  endIndex <-endIndex+caseIndexesList[count]+caseIndexesList[count+1]
   count <- count +1
+  tumor1 <- allCases[1:41]
 }
 
 split_even_odd <- function(input_list) {
@@ -137,7 +152,7 @@ h2afypvalue <- resultPvalue$odd
 h2afzpvalue <- resultPvalue$even
 
 geneExpNames <- row.names(geneExp)
-is_in_list <- "ENSG00000164032.12" %in% geneExpNames
+is_in_list <- "ENSMUSG00000000031.19" %in% geneExpNames
 
 
 runningDeseq2 <- function(tumor1, tumor2){
@@ -157,18 +172,12 @@ runningDeseq2 <- function(tumor1, tumor2){
   
   #case comparison
   l <- list(data.frame(geneExp))
-  list1 <- c(tumor1[1], tumor2[1],
-             tumor1[2], tumor2[2],
-             tumor1[3], tumor2[3],
-             tumor1[4], tumor2[4],
-             tumor1[5], tumor2[5],
-             tumor1[6], tumor2[6],
-             tumor1[7], tumor2[7],
-             tumor1[8], tumor2[8])
+  list1<-c()
+  for(i in 1:length(tumor1)){
+    list1 <- c(list1, c(tumor1[i],tumor2[i]))
+  }
   
   list1 <- gsub("-",".",list1)
-  
-  print(list1)
   
   dta_list1 <- lapply(l, function(x) x%>% select(all_of(list1)))
   
@@ -180,24 +189,14 @@ runningDeseq2 <- function(tumor1, tumor2){
   
   cnts_noZero <- dta_list[rowMeans(dta_list) > 0,]
   dim(cnts_noZero)
-  
+
   #matrix coldata
-  colData <- data.frame(Stage = c("Normal","Tumor", 
-                                  "Normal", "Tumor",
-                                  "Normal", "Tumor",
-                                  "Normal", "Tumor",
-                                  "Normal", "Tumor",
-                                  "Normal", "Tumor",
-                                  "Normal", "Tumor",
-                                  "Normal", "Tumor"))
-  rownames(colData) <- c(tumor1[1], tumor2[1],
-                         tumor1[2], tumor2[2],
-                         tumor1[3], tumor2[3],
-                         tumor1[4], tumor2[4],
-                         tumor1[5], tumor2[5],
-                         tumor1[6], tumor2[6],
-                         tumor1[7], tumor2[7],
-                         tumor1[8], tumor2[8])
+  stageString <- c()
+  for(i in 1:length(tumor1)){
+    stageString <- c(stageString, c("Normal", "Tumor"))
+  }
+  colData <- data.frame(Stage = stageString)
+  rownames(colData) <- list1
   
   rownames(colData) <- gsub("-",".",rownames(colData))
   
@@ -218,6 +217,7 @@ runningDeseq2 <- function(tumor1, tumor2){
   res <- data.frame(res)
   print(res)
   return(list(logFold = res$log2FoldChange,pValue = res$pvalue))
+
 }
 
 
@@ -254,21 +254,34 @@ dfVolcano <- data.frame(
 ggplot(dfVolcano, aes(x = logFC, y = -log10(pvalue))) +
   geom_point(aes(color = pvalue < 0.05), alpha = 0.6) +
   scale_color_manual(values = c("black", "red")) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "blue") +  
   labs(title = "LogFold Expression of H2AFY2 and H2AFZ in CRC",
        x = "Log2 Fold Change",
        y = "-Log10 P-value") +
   theme_minimal()
 
-ggplot(dfVolcano, aes(x = logFC, y = -log10(pvalue), color = gene)) +
-  geom_point(size = 4) +  # Add points
-  geom_text(aes(label = gene), vjust = -0.5) +  # Add text labels
-  labs(
-    x = 'Log Fold Change',
-    y = '-Log10(P-Value)',
-    title = 'Volcano Plot'
-  ) +
-  theme_minimal() +  # Use a minimal theme
-  theme(
-    legend.title = element_blank(),  # Remove legend title
-    legend.position = "right"  # Position legend to the right
-  )
+
+
+dfVolcano1 <- data.frame(
+  gene = c("H2AFY2"),
+  logFC = h2afydeSeqList,
+  pvalue = c(h2afypvalue),
+  Stage = c("N-I", "I-II","II-IIA","IIA-IIB","IIB-III","III-IIIA", "IIIA-IIIB", 
+            "IIIB-IIIC","IIIC-IV","IV-IVA")
+)
+dfVolcano2 <- data.frame(
+  gene = c("H2AZ1"),
+  logFC = h2afzdeseqlist,
+  pvalue = c(h2afzpvalue),
+  Stage = c("N-I", "I-II","II-IIA","IIA-IIB","IIB-III","III-IIIA", "IIIA-IIIB", 
+            "IIIB-IIIC","IIIC-IV","IV-IVA")
+)
+
+combinedData <- rbind(dfVolcano1,dfVolcano2)
+
+duplicate_strings <- function(string) {
+  # Create a new string where the original string is duplicated
+  return(paste(rep(string, 2), collapse = " "))
+}
+
+exportData <- write.csv(combinedData, "/Users/raghav/Downloads/PolygenceGraphs/LogDataTable.csv")
