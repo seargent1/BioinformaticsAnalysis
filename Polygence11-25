@@ -116,7 +116,6 @@ vector_list <- c(filtered_other_vectors, list(filtered_last_vector))
 
 allCases <- c(normal,caseI,caseII,caseIIA,caseIIB,caseIII,caseIIIA,caseIIIB,caseIIIC,caseIV,caseIVA)
 caseIndexesList <- c(41, 80, 30, 144, 12, 20, 8, 60, 45, 48, 20)
-count <- 1
 h2afydeSeqList <- c()
 h2afzdeseqlist <- c()
 h2afypvalue <- c()
@@ -132,54 +131,46 @@ set2<- 41
 
 tumor1 <- allCases[set1:set2]
 
+
+df_final <- data.frame()
+
+
+for(k in 1:990){
+print(k)
 startIndex2 <- 1
 endIndex2<- 1
-
-for(i in 1:length(allCases)){
+count <- 1
+for(i in 1:length(vector_list)){
   tumor1 <- allCases[1:41]
   if(i>1){
-    min_length <- min(caseIndexesList[count], caseIndexesList[count+1])
+    min_length <- min(caseIndexesList[1], caseIndexesList[count+1])
     startIndex2 <- caseIndexesList[count]+1
     endIndex2 <- caseIndexesList[count]+caseIndexesList[count+1]
     if(caseIndexesList[count+1] < 41){
       random_strings <- sample(allCases[startIndex2:endIndex2], size = min_length, replace = TRUE)
-      print(random_strings)
     }
     else{
       random_strings <- sample(allCases[1:41], size = min_length, replace = TRUE)
     }
+    tumor2 <- random_strings
+    deseqValue <- runningDeseq2(tumor1,tumor2)
+    new_row <- c(deseqValue$logFold, 
+                 deseqValue$pValue)
+    
+    df_final <- rbind(df_final, new_row)
   }
-  tumor2 <- random_strings
-  deseqValue <- runningDeseq2(tumor1,tumor2)
-  
-  deseqList <- c(deseqList,deseqValue$logFold)
-  pvaluelist <- c(pvaluelist,deseqValue$pValue)
+
+  #deseqList <- c(deseqList,deseqValue$logFold)
+  #pvaluelist <- c(pvaluelist,deseqValue$pValue)
   
   count <- count +1
-}
-
-
-split_even_odd <- function(input_list) {
-  even_indices <- seq(2, length(input_list), by = 2)  # indices 2, 4, 6, ...
-  odd_indices <- seq(1, length(input_list), by = 2)   # indices 1, 3, 5, ...
   
-  even_list <- input_list[even_indices]
-  odd_list <- input_list[odd_indices]
-  
-  return(list(even = even_list, odd = odd_list))
+  if(k %% 100 == 0){
+    csv_filename <- paste0("/Users/raghav/Downloads/", k, ".csv")
+    write.csv(df_final, file = csv_filename, row.names = FALSE)
+  }
 }
-
-resultDeSeq <- split_even_odd(deseqList)
-h2afydeSeqList <- resultDeSeq$odd
-h2afzdeseqlist <- resultDeSeq$even
-
-resultPvalue <- split_even_odd(pvaluelist)
-h2afypvalue <- resultPvalue$odd
-h2afzpvalue <- resultPvalue$even
-
-geneExpNames <- row.names(geneExp)
-is_in_list <- "ENSMUSG00000000031.19" %in% geneExpNames
-
+}
 
 runningDeseq2 <- function(tumor1, tumor2){
   tumor1 <- unique(tumor1)
@@ -193,11 +184,8 @@ runningDeseq2 <- function(tumor1, tumor2){
   shared_strings <- intersect(tumor1, tumor2)
   
   # Append "Tumor" to shared strings only in the second vector
-  tumor2 <- ifelse(tumor2 %in% shared_strings, paste0(tumor2, "Tumor"), tumor2)
-  
-  print(tumor1)
-  print(tumor2)
- 
+  tumor1 <- setdiff(tumor1, shared_strings)
+  tumor2 <- setdiff(tumor2, shared_strings)
   
   #tumor vs normal
   tumor<-geneExp[ , grepl( ".............01............." , colnames( geneExp ) ) ]
@@ -262,6 +250,31 @@ runningDeseq2 <- function(tumor1, tumor2){
   return(list(logFold = res$log2FoldChange,pValue = res$pvalue))
   
 }
+
+
+split_even_odd <- function(input_list) {
+  even_indices <- seq(2, length(input_list), by = 2)  # indices 2, 4, 6, ...
+  odd_indices <- seq(1, length(input_list), by = 2)   # indices 1, 3, 5, ...
+  
+  even_list <- input_list[even_indices]
+  odd_list <- input_list[odd_indices]
+  
+  return(list(even = even_list, odd = odd_list))
+}
+
+resultDeSeq <- split_even_odd(deseqList)
+h2afydeSeqList <- resultDeSeq$odd
+h2afzdeseqlist <- resultDeSeq$even
+
+resultPvalue <- split_even_odd(pvaluelist)
+h2afypvalue <- resultPvalue$odd
+h2afzpvalue <- resultPvalue$even
+
+geneExpNames <- row.names(geneExp)
+is_in_list <- "ENSMUSG00000000031.19" %in% geneExpNames
+
+
+
 
 
 df <- data.frame(
@@ -357,4 +370,111 @@ exportData <- write.csv(combinedData, "/Users/raghav/Downloads/PolygenceGraphs/L
     tumor1 <- allCases[1:41]
   }
 
+group_by_threshold <- function(vector) {
+  for()
+}
+group_results <- lapply(data, function(col) group_by_threshold(col, threshold = 9))
 
+
+correct_df <- Correctly_Renamed_Dataset_with_Step_9_Columns
+filtered_df <- correct_df[!(correct_df$p_value_H2AZ1 < 0.05 | df_final$p_value_H2AFY2 < 0.05), ]
+
+columns_of_interest <- grep("p_value", names(df), value = TRUE)
+
+filtered_df <- correct_df[apply(correct_df[, columns_of_interest], 1, function(row) all(row <= 0.05, na.rm = TRUE)), ]
+
+h2afydeSeqList <- c(0.9122187,
+                    -0.002063497,
+                    0.9170679,
+                    -0.001994131,
+                    -0.002274821,
+                    -0.0036832316,
+                    -0.0009201952,
+                    -0.0005900028,
+                    1.295887
+)
+h2afzdeseqlist <- c(-0.4775267,
+                    0.2036190,
+                    -0.8886562,
+                    0.10602196,
+                    0.1271319,
+                    0.1301634,
+                    0.2029127,
+                    0.1857820,
+                    -0.8407692)
+
+
+h2afypvalue <- c(7.48e-06,
+                 0.003255686,
+                 9.87e-12,
+                 0.08906547,
+                 0.09875583,
+                 0.02343683,
+                 0.01454391,
+                 0.01764808,
+                 2.37e-07)
+h2afzpvalue <- c(0.003811695,
+                 0.005110394,
+                 1.50e-11,
+                 0.1163088,
+                 0.1612190,
+                 0.04295229,
+                 0.05702362,
+                 0.01984339,
+                 0.0003370352)
+
+logList <- c(h2afydeSeqList,h2afzdeseqlist)
+
+dfVolcano1 <- data.frame(
+  gene = c("H2AFY2", "H2AFZ"),
+  logFC = logList,
+  pvalue = c(h2afypvalue,h2afzpvalue)
+)
+
+ggplot(dfVolcano1, aes(x = logFC, y = -log10(pvalue))) +
+  geom_point(alpha = 0.6) +
+  theme_minimal()
+
+ggplot(dfVolcano1, aes(x = logFC, y = -log10(pvalue))) +
+  geom_point(aes(color = pvalue < 0.05), alpha = 0.6) +
+  scale_color_manual(values = c("black", "red")) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "blue") +  
+  labs(title = "LogFold Expression of H2AFY2 and H2AFZ in CRC",
+       x = "Log2 Fold Change",
+       y = "-Log10 P-value") +
+  theme_minimal()
+
+
+for (i in 1:nrow(H2AZ1_Reorganized_Data)) {
+  rowH2AZ1 <- unlist(H2AZ1_Reorganized_Data[i, ]) 
+  rowH2AFY <- unlist(H2AFY_Reorganized_Data[i, ]) 
+  h2afydeSeqList <- rowH2AZ1[1:9]
+  h2afzdeseqlist <- rowH2AFY[1:9]
+  h2afypvalue <- rowH2AFY[10:18]
+  h2afzpvalue <- rowH2AZ1[10:18]
+  
+  dfVolcano1 <- data.frame(
+    gene = c("H2AFY2", "H2AFZ"),
+    logFC = logList,
+    pvalue = c(h2afypvalue,h2afzpvalue)
+  )
+  p <- ggplot(dfVolcano1, aes(x = logFC, y = -log10(pvalue))) +
+    geom_point(aes(color = pvalue < 0.05), alpha = 0.6) +
+    scale_color_manual(values = c("black", "red")) +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "blue") +  
+    labs(
+      x = "Log2 Fold Change",
+      y = "-Log10 P-value"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.title.x = element_text(color = "black", size = 12),
+      axis.title.y = element_text(color = "black", size = 12),
+      axis.text = element_text(color = "black"),
+      legend.text = element_text(color = "black", size = 10)
+    )
+  
+  
+  ggsave(filename = paste0("/Users/raghav/Documents/PaperGraph", i, ".png"), plot = p, width = 6, height = 4)
+  
+}
